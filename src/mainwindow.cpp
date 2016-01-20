@@ -2,6 +2,7 @@
 
 #include <QtGui/QFileDialog>
 #include <QtGui/QMenuBar>
+#include <QtGui/QMessageBox>
 
 /*------- MainWindow::PrivateData -------------------------------------------*/
 class MainWindow::PrivateData
@@ -37,14 +38,28 @@ MainWindow::~MainWindow()
 void MainWindow::onCreateDatabase()
 {
 	QString filepath = QFileDialog::getSaveFileName(this, tr("Create Database"));
-	m_database.create(filepath);
+
+	if (!m_database.create(filepath)) {
+		QMessageBox::warning(this,
+							 tr("Error"),
+							 tr("Database is not created."));
+		return;
+	}
+
 	updateTableList();
 }
 
 void MainWindow::onOpenDatabase()
 {
 	QString filepath = QFileDialog::getOpenFileName(this, tr("Open Database"));
-	m_database.open(filepath);
+
+	if (!m_database.open(filepath)) {
+		QMessageBox::warning(this,
+							 tr("Error"),
+							 tr("Database is not opened."));
+		return;
+	}
+
 	updateTableList();
 }
 
@@ -56,6 +71,29 @@ void MainWindow::updateTableList()
 
 void MainWindow::updateTableContent(int index)
 {
+	if (index == -1) {
+		return;
+	}
+
+	QString table = ui->tableList->item(index)->text();
+
+	ui->tableContent->clear();
+	ui->tableContent->setColumnCount(m_database.fieldCount());
+	ui->tableContent->setHorizontalHeaderLabels(m_database.header());
+
+	int rowCount = m_database.rowCount();
+	ui->tableContent->setRowCount(rowCount);
+
+	QStringList values;
+	int valuesCount = 0;
+	for (int i = 0; i < rowCount; i++) {
+		values = m_database.record(i);
+		valuesCount = values.size();
+		for (int j = 0; j < valuesCount; j++) {
+			QTableWidgetItem *item = new QTableWidgetItem(values[j]);
+			ui->tableContent->setItem(i, j, item);
+		}
+	}
 }
 
 void MainWindow::createActions()
@@ -80,4 +118,7 @@ void MainWindow::connect()
 
 	QObject::connect(m_pD->actionOpenDatabase, SIGNAL(triggered(bool)),
 					 SLOT(onOpenDatabase()));
+
+	QObject::connect(ui->tableList, SIGNAL(currentRowChanged(int)),
+					 SLOT(updateTableContent(int)));
 }
